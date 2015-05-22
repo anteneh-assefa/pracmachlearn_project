@@ -1,0 +1,70 @@
+Prediction Assignment
+=====================
+
+Assefa A.
+
+### Executive summary
+The goal of this project is to discriminate between different weight lifting activities. The dataset for modeling was first dividing in to training (70% of the total data) and test (30%) datasets. A classification model was build considering taining set, crossvalidation, and randomforest algorithm. The acuracy of the model was evaluated using the test dataset. Finally, the model was used to predict a new separate dataset.
+
+#### Downloading and cleaning dataset
+
+```{r, cache = TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+              "modelData.csv", method="curl")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+              "predictData.csv", method="curl")
+modelData <- read.csv("modelData.csv")
+predictData <- read.csv("predictData.csv")
+modelData$classe <- as.factor(modelData$classe)
+
+dim(modelData)
+summary(modelData$classe)
+```
+
+```{r}
+naData <- sapply(modelData, function (x) any(is.na(x) | x == ""))
+nnaIndex <- !naData & grepl("belt|[^(fore)]arm|dumbbell|forearm", names(naData))
+
+cleanIndex <- c("classe", names(naData)[nnaIndex])
+cleanData <- modelData[, cleanIndex]
+
+dim(cleanData)
+summary(cleanData$classe)
+```
+
+#### Dividing in to trainng and test datasets
+```{r}
+library(caret)
+
+trainIndex <- createDataPartition(y=cleanData$classe, p=0.7, list=FALSE)
+trainData <- cleanData[trainIndex, ]
+testData <- cleanData[-trainIndex, ]
+summary(trainData$classe)
+summary(testData$classe)
+```
+
+#### Prediction model using cross validation
+On testing the model using the test dataset, the model is 99.5% accurate.
+```{r}
+library(randomForest)
+
+modelControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10)
+modelTrain <- randomForest(classe~., data=trainData, trControl = modelControl)
+
+mean(predict(modelTrain, testData) == testData$classe)*100
+```
+
+#### Predicting the class of the new independent dataset and exporting the results as .txt files
+```{r}
+pred <- predict(modelTrain, newdata = predictData)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(pred)
+```
